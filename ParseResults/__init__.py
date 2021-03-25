@@ -13,13 +13,19 @@ from azure.storage.blob import BlobServiceClient
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     
+    #Parse request body
     req_body = req.get_json()
 
     try:
+        #Get custom vision/form recognizer results from body
         customVisionResults = req_body.get('customVisionResponse')
         formRecognizerResults = req_body.get('formsRecognizerResponse')
+
+        #Store formatted results in a dictionary - will be converted to a Pandas dataframe
         results = {}
 
+        #Iterate over custom vision results - store highest scoring symbol
+        #Optional: Implement symbol-specific thresholds
         for pred in customVisionResults['predictions']:
                 if 'Symbol_{}'.format(pred['tagName']) not in results:
                     results['Symbol_{}'.format(pred['tagName'])] = pred['probability']
@@ -27,6 +33,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                     if results['Symbol_{}'.format(pred['tagName'])] < pred['probability']:
                         results['Symbol_{}'.format(pred['tagName'])] = pred['probability']
 
+        #Iterate over Form Recognizer results to get tag values
         results['Form Recognizer Status'] = formRecognizerResults['status']
 
         for res in formRecognizerResults['analyzeResult']['readResults']:
@@ -46,6 +53,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         df = pd.DataFrame([results])
         df.to_excel(os.path.join(tempdir, filename), index=False)
 
+        #Read data from excel file
         upload_data = None
         with open(os.path.join(tempdir, filename), 'rb') as file:
             upload_data = file.read()
